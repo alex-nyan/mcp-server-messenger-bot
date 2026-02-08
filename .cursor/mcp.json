@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "messenger": {
+      "command": "node",
+      "args": ["${workspaceFolder}/build/mcp-server.js"],
+      "envFile": "${workspaceFolder}/.env"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "messenger-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Facebook Messenger – send messages, user info, typing indicators",
+  "type": "module",
+  "main": "build/mcp-server.js",
+  "bin": {
+    "messenger-mcp": "build/mcp-server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/webhook-server.js",
+    "start:mcp": "node build/mcp-server.js",
+    "start:webhook": "node build/webhook-server.js",
+    "dev:mcp": "tsc && node build/mcp-server.js",
+    "dev:webhook": "tsc && node build/webhook-server.js",
+    "tunnel": "lt --port 3000"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "localtunnel": "^2.0.2",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}
