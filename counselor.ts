@@ -71,6 +71,89 @@ const KNOWLEDGE: { keywords: string[]; answer: string }[] = [
       "🇲🇲 **Education options in Myanmar** and next steps\n\n" +
       "Ask me anything—e.g. “What is OSSD?”, “Scholarships for UK”, or “Foundation program options.”",
   },
+  {
+    keywords: ["uk", "britain", "united kingdom", "chevening", "british"],
+    answer:
+      "**UK options** for Burmese students:\n\n" +
+      "• **Chevening**: Full scholarship for one-year master's. Opens around Aug–Nov; apply early.\n" +
+      "• **University scholarships**: Many UK universities offer partial/full scholarships—check their websites.\n" +
+      "• **A-Levels or foundation** can lead to UK degree entry.",
+  },
+  {
+    keywords: ["usa", "america", "us", "united states", "fulbright", "american"],
+    answer:
+      "**USA options**: **Fulbright** for graduate study (competitive). US universities often offer merit/need-based aid. **GED** is widely accepted for college entry.",
+  },
+  {
+    keywords: ["australia", "australian", "australian awards"],
+    answer:
+      "**Australia**: **Australia Awards** (government scholarships). Australian universities also offer scholarships. Foundation/pathway programs are common.",
+  },
+  {
+    keywords: ["japan", "japanese", "mext", "japan government"],
+    answer:
+      "**Japan**: **MEXT** (Japanese Government Scholarship) covers tuition, stipend, sometimes flight. Apply via embassy or university. Japanese language prep often required.",
+  },
+  {
+    keywords: ["korea", "korean", "kgsp", "korean government"],
+    answer:
+      "**Korea**: **KGSP** = full scholarship for undergrad or graduate study. Check official KGSP website. Korean universities also offer their own scholarships.",
+  },
+  {
+    keywords: ["canada", "canadian", "study in canada"],
+    answer:
+      "**Canada**: **OSSD** (Ontario diploma) is a strong pathway; can be done online or in Ontario. Canadian universities offer scholarships for international students.",
+  },
+  {
+    keywords: ["ielts", "toefl", "english test", "english requirement", "language requirement"],
+    answer:
+      "**English**: **IELTS** and **TOEFL** are most common; universities state minimum scores (e.g. IELTS 6.0–6.5). Foundation programs often include English prep.",
+  },
+  {
+    keywords: ["deadline", "when to apply", "application date"],
+    answer:
+      "**When to apply**: Scholarship deadlines are often 6–12 months before start. Universities have rolling or set deadlines. Prepare transcripts, recommendation letters, and personal statement early.",
+  },
+  {
+    keywords: ["recommendation", "reference", "recommendation letter", "referee"],
+    answer:
+      "**Recommendation letters**: Choose teachers/supervisors who know your work. Give them time and your CV. Most programs want 2–3 letters.",
+  },
+  {
+    keywords: ["personal statement", "statement of purpose", "sop", "motivation letter", "essay"],
+    answer:
+      "**Personal statement**: Explain why this subject and level; mention experience and goals. Be specific, stay within word limit, proofread.",
+  },
+  {
+    keywords: ["undergraduate", "bachelor", "bachelor's", "undergrad", "first degree"],
+    answer:
+      "**Undergraduate** entry: A-Levels, OSSD, GED, or foundation year. Tell me your current level and target country for specific advice.",
+  },
+  {
+    keywords: ["master", "masters", "graduate", "ms", "ma", "mba", "postgraduate"],
+    answer:
+      "**Master's**: Many scholarships target master's (Chevening, Fulbright, Australia Awards). Need a bachelor's; strong recommendation letters and SOP matter.",
+  },
+  {
+    keywords: ["online", "distance", "remote", "study online"],
+    answer:
+      "**Online**: OSSD can be done through accredited online schools. GED prep/exams in many locations. Some universities offer online degrees. I can help choose a pathway.",
+  },
+  {
+    keywords: ["cost", "fee", "fees", "expensive", "how much", "tuition"],
+    answer:
+      "**Costs**: Scholarships can cover tuition and living costs. Without one, tuition varies by country. I can help with scholarship and affordable options.",
+  },
+  {
+    keywords: ["thanks", "thank you", "bye", "goodbye", "ok", "okay"],
+    answer:
+      "You're welcome! Ask anytime about scholarships, OSSD, GED, A-Levels, IGCSE, or foundation programs. Good luck!",
+  },
+  {
+    keywords: ["who are you", "what are you", "robot", "bot", "ai", "counselor"],
+    answer:
+      "I'm an education counselor bot for Burmese students. I help with scholarships, OSSD, GED, A-Levels, IGCSE, foundation programs, and pathways in Myanmar. Ask me anything in that area!",
+  },
 ];
 
 const FALLBACK_ANSWER =
@@ -90,29 +173,18 @@ function normalize(text: string): string {
 }
 
 /**
- * Returns a reply from the knowledge base based on keyword matching.
- * Optionally uses OpenAI if OPENAI_API_KEY is set (and model is available).
+ * Returns a reply: keyword match from KNOWLEDGE first (fast, free).
+ * If no good match, uses OpenAI when OPENAI_API_KEY is set (for open-ended questions).
  */
 export async function getReply(userMessage: string): Promise<string> {
   if (!userMessage || typeof userMessage !== "string") return FALLBACK_ANSWER;
   const normalized = normalize(userMessage);
   if (normalized.length === 0) return FALLBACK_ANSWER;
 
-  // Optional: use OpenAI for richer answers if key is set
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (apiKey) {
-    try {
-      const aiReply = await getOpenAIReply(apiKey, userMessage);
-      if (aiReply) return toPlainText(aiReply);
-    } catch (e) {
-      console.warn("OpenAI counselor fallback:", (e as Error).message);
-    }
-  }
-
-  // Score each knowledge entry by keyword matches
-  let bestScore = 0;
-  let bestAnswer = FALLBACK_ANSWER;
+  // 1. Try hardcoded knowledge first (responsive, no API cost)
   const words = normalized.split(" ").filter((w) => w.length > 1);
+  let bestScore = 0;
+  let bestAnswer: string | null = null;
   for (const { keywords, answer } of KNOWLEDGE) {
     let score = 0;
     for (const kw of keywords) {
@@ -124,7 +196,20 @@ export async function getReply(userMessage: string): Promise<string> {
       bestAnswer = answer;
     }
   }
-  return toPlainText(bestAnswer);
+  if (bestScore > 0 && bestAnswer) return toPlainText(bestAnswer);
+
+  // 2. No good match — use OpenAI for open-ended or specific questions (if key is set)
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (apiKey) {
+    try {
+      const aiReply = await getOpenAIReply(apiKey, userMessage);
+      if (aiReply) return toPlainText(aiReply);
+    } catch (e) {
+      console.warn("OpenAI counselor error:", (e as Error).message);
+    }
+  }
+
+  return FALLBACK_ANSWER;
 }
 
 /** Strip Markdown bold for plain-text Messenger */
