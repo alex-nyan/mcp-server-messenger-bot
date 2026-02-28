@@ -214,9 +214,12 @@ export async function getReply(userMessage: string): Promise<string> {
 
   // 2. Specific or open-ended question → OpenAI (with topic context if we have a match)
   const apiKey = process.env.OPENAI_API_KEY;
-  if (apiKey) {
+  // #region agent log
+  fetch('http://127.0.0.1:7832/ingest/8a067dd9-fa67-459c-9257-28e916d33083',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ffda8f'},body:JSON.stringify({sessionId:'ffda8f',location:'counselor.ts:getReply',message:'OPENAI_API_KEY check',data:{keyDefined:!!apiKey,keyLength:apiKey?.length??0,keyTrimmedLength:apiKey?.trim?.()?.length??0},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+  // #endregion
+  if (apiKey?.trim()) {
     try {
-      const aiReply = await getOpenAIReply(apiKey, userMessage, bestScore > 0 ? bestAnswer : undefined);
+      const aiReply = await getOpenAIReply(apiKey.trim(), userMessage, bestScore > 0 ? bestAnswer : undefined);
       if (aiReply) return toPlainText(aiReply);
     } catch (e) {
       console.warn("OpenAI counselor error:", (e as Error).message);
@@ -238,6 +241,9 @@ async function getOpenAIReply(
   userMessage: string,
   referenceContext?: string | null
 ): Promise<string | null> {
+  // #region agent log
+  fetch('http://127.0.0.1:7832/ingest/8a067dd9-fa67-459c-9257-28e916d33083',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ffda8f'},body:JSON.stringify({sessionId:'ffda8f',location:'counselor.ts:getOpenAIReply',message:'entry',data:{apiKeyLength:apiKey?.length??0,startsWithSk:apiKey?.startsWith?.('sk-')??false},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+  // #endregion
   const baseRole =
     "You are a friendly, professional education counselor for Burmese students. " +
     "Keep replies helpful, clear, and concise (suitable for Messenger). Use simple language. " +
@@ -257,16 +263,26 @@ async function getOpenAIReply(
     ],
     max_tokens: 500,
   };
+  const authHeader = `Bearer ${apiKey}`;
+  // #region agent log
+  fetch('http://127.0.0.1:7832/ingest/8a067dd9-fa67-459c-9257-28e916d33083',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ffda8f'},body:JSON.stringify({sessionId:'ffda8f',location:'counselor.ts:beforeFetch',message:'auth header',data:{authHeaderLength:authHeader.length,startsWithBearer:authHeader.startsWith('Bearer ')},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+  // #endregion
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: authHeader,
     },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`OpenAI ${res.status}`);
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const data = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+    error?: { message?: string; code?: string };
+  };
+  if (!res.ok) {
+    const msg = data.error?.message ?? `OpenAI ${res.status}`;
+    throw new Error(msg);
+  }
   const content = data.choices?.[0]?.message?.content?.trim();
   return content || null;
 }
