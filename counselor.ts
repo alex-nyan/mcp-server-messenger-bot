@@ -172,19 +172,30 @@ function normalize(text: string): string {
     .trim();
 }
 
+// When the ONLY match is one of these topic areas, use hardcoded reply (no API). Everything else → OpenAI for specific answers.
+const GENERIC_TOPIC_KEYWORDS = new Set([
+  "hello", "hi", "hey", "help", "start", "what can you do",
+  "thanks", "thank you", "bye", "goodbye", "ok", "okay",
+  "who are you", "what are you", "robot", "bot", "counselor",
+]);
+function isGenericTopic(keywords: string[]): boolean {
+  return keywords.length > 0 && keywords.every((k) => GENERIC_TOPIC_KEYWORDS.has(k));
+}
+
 /**
- * Returns a reply: keyword match from KNOWLEDGE first (fast, free).
- * If no good match, uses OpenAI when OPENAI_API_KEY is set (for open-ended questions).
+ * Returns a reply. Uses hardcoded only for short generic greetings/closings.
+ * Otherwise uses OpenAI so the bot can answer the user's specific question;
+ * when a topic is detected, we pass that knowledge as context so the answer is specific, not a generic block.
  */
 export async function getReply(userMessage: string): Promise<string> {
   if (!userMessage || typeof userMessage !== "string") return FALLBACK_ANSWER;
   const normalized = normalize(userMessage);
   if (normalized.length === 0) return FALLBACK_ANSWER;
 
-  // 1. Try hardcoded knowledge first (responsive, no API cost)
   const words = normalized.split(" ").filter((w) => w.length > 1);
   let bestScore = 0;
   let bestAnswer: string | null = null;
+  let bestKeywords: string[] = [];
   for (const { keywords, answer } of KNOWLEDGE) {
     let score = 0;
     for (const kw of keywords) {
@@ -194,21 +205,26 @@ export async function getReply(userMessage: string): Promise<string> {
     if (score > bestScore) {
       bestScore = score;
       bestAnswer = answer;
+      bestKeywords = keywords;
     }
   }
-  if (bestScore > 0 && bestAnswer) return toPlainText(bestAnswer);
 
-  // 2. No good match — use OpenAI for open-ended or specific questions (if key is set)
+  // 1. Truly generic message (greetings, thanks, who are you) → hardcoded only (fast, no API)
+  if (bestScore > 0 && bestAnswer && isGenericTopic(bestKeywords)) return toPlainText(bestAnswer);
+
+  // 2. Specific or open-ended question → OpenAI (with topic context if we have a match)
   const apiKey = process.env.OPENAI_API_KEY;
   if (apiKey) {
     try {
-      const aiReply = await getOpenAIReply(apiKey, userMessage);
+      const aiReply = await getOpenAIReply(apiKey, userMessage, bestScore > 0 ? bestAnswer : undefined);
       if (aiReply) return toPlainText(aiReply);
     } catch (e) {
       console.warn("OpenAI counselor error:", (e as Error).message);
     }
   }
 
+  // 3. No API or API failed → use matched knowledge or fallback
+  if (bestScore > 0 && bestAnswer) return toPlainText(bestAnswer);
   return FALLBACK_ANSWER;
 }
 
@@ -217,16 +233,26 @@ function toPlainText(text: string): string {
   return text.replace(/\*\*([^*]+)\*\*/g, "$1").trim();
 }
 
-async function getOpenAIReply(apiKey: string, userMessage: string): Promise<string | null> {
-  const systemPrompt =
+async function getOpenAIReply(
+  apiKey: string,
+  userMessage: string,
+  referenceContext?: string | null
+): Promise<string | null> {
+  const baseRole =
     "You are a friendly, professional education counselor for Burmese students. " +
-    "You help with: scholarships abroad, OSSD, GED, A-Levels, IGCSE, foundation programs, and education pathways in Myanmar. " +
     "Keep replies helpful, clear, and concise (suitable for Messenger). Use simple language. " +
+    "Answer the user's specific question directly—do not just repeat generic info or redirect. " +
     "If the question is outside education/counseling, politely redirect to education topics.";
+
+  const systemContent = referenceContext
+    ? `${baseRole}\n\nUse the following reference information to answer the user's question. If they ask something specific (e.g. deadline, eligibility, how to apply), answer based on this. Do not say "based on the reference"—just answer naturally.\n\nReference:\n${toPlainText(referenceContext)}`
+    : baseRole +
+      " You help with: scholarships abroad, OSSD, GED, A-Levels, IGCSE, foundation programs, and education pathways in Myanmar.";
+
   const payload = {
     model: "gpt-4o-mini",
     messages: [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: systemContent },
       { role: "user", content: userMessage },
     ],
     max_tokens: 500,
