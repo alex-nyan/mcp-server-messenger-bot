@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build && cp build/counselor.js netlify/functions/"
+  publish = "public"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# So you can use https://YOUR-SITE.netlify.app/webhook as callback URL in Facebook
+[[redirects]]
+  from = "/webhook"
+  to = "/.netlify/functions/webhook"
+  status = 200
+  force = true
