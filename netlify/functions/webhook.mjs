@@ -40,24 +40,24 @@ async function respondToUser(senderId, userText) {
   }
 }
 
-function handleMessage(senderId, message) {
+async function handleMessage(senderId, message) {
   if (message.text) {
     const t = message.text.trim().toLowerCase();
     if (t === "my psid" || t === "what's my id" || t === "what is my id" || t === "my id") {
-      sendMessageToUser(senderId, `Your PSID is: ${senderId}\n\nUse this when testing with send-one.mjs or the MCP send_message tool.`);
+      await sendMessageToUser(senderId, `Your PSID is: ${senderId}\n\nUse this when testing with send-one.mjs or the MCP send_message tool.`);
       return;
     }
-    respondToUser(senderId, message.text);
+    await respondToUser(senderId, message.text);
   }
   if (message.attachments?.length && !message.text) {
-    respondToUser(
+    await respondToUser(
       senderId,
       "I received your attachment. I'm best at answering questions about scholarships, OSSD, GED, A-Levels, IGCSE, and foundation programs. Send me a text question!"
     );
   }
 }
 
-function processBody(body) {
+async function processBody(body) {
   if (!body || body.object !== "page") return;
   const entries = Array.isArray(body.entry) ? body.entry : [];
   for (const entry of entries) {
@@ -66,7 +66,7 @@ function processBody(body) {
     for (const ev of messaging) {
       const senderId = ev.sender?.id;
       if (!senderId) continue;
-      if (ev.message) handleMessage(senderId, ev.message);
+      if (ev.message) await handleMessage(senderId, ev.message);
       // postback, delivery, read can be handled here if needed
     }
   }
@@ -126,7 +126,7 @@ export async function handler(event) {
     } catch {
       return { statusCode: 200, body: "EVENT_RECEIVED" };
     }
-    processBody(body);
+    await processBody(body);
     return { statusCode: 200, body: "EVENT_RECEIVED" };
   }
 

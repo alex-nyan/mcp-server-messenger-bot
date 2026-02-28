@@ -16,7 +16,9 @@
     "dev:webhook": "tsc && node build/webhook-server.js",
     "tunnel": "lt --port 3000",
     "test:mcp": "node test-mcp.mjs list",
-    "test:send": "node send-one.mjs"
+    "test:send": "node send-one.mjs",
+    "test:counselor": "npm run build && node test-counselor.mjs",
+    "test:webhook": "node test-webhook-local.mjs"
   },
   "engines": {
     "node": ">=18"
