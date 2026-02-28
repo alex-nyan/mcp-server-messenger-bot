@@ -181,6 +181,11 @@ function handleMessage(senderId: string, message: any) {
 
   if (message.text) {
     console.log(`  Text: ${message.text}`);
+    const t = message.text.trim().toLowerCase();
+    if (t === "my psid" || t === "what's my id" || t === "what is my id" || t === "my id") {
+      sendMessageToUser(senderId, `Your PSID is: ${senderId}\n\nUse this when testing with send-one.mjs or the MCP send_message tool.`);
+      return;
+    }
     respondToUser(senderId, message.text);
   }
 

@@ -42,6 +42,11 @@ async function respondToUser(senderId, userText) {
 
 function handleMessage(senderId, message) {
   if (message.text) {
+    const t = message.text.trim().toLowerCase();
+    if (t === "my psid" || t === "what's my id" || t === "what is my id" || t === "my id") {
+      sendMessageToUser(senderId, `Your PSID is: ${senderId}\n\nUse this when testing with send-one.mjs or the MCP send_message tool.`);
+      return;
+    }
     respondToUser(senderId, message.text);
   }
   if (message.attachments?.length && !message.text) {
@@ -73,23 +78,37 @@ export async function handler(event) {
 
   // GET — webhook verification or info
   if (method === "GET") {
-    const params = event.queryStringParameters || {};
-    const mode = params["hub.mode"];
-    const token = params["hub.verify_token"];
-    const challenge = params["hub.challenge"];
+    // Netlify/Lambda: query params can be in queryStringParameters (or multiValue)
+    const q = event.queryStringParameters || {};
+    const multi = event.multiValueQueryStringParameters || {};
+    const getParam = (key) => q[key] ?? (Array.isArray(multi[key]) ? multi[key][0] : undefined);
+    const mode = getParam("hub.mode");
+    const token = getParam("hub.verify_token");
+    const challenge = getParam("hub.challenge");
     const ourToken = (FB_VERIFY_TOKEN || "").trim();
 
-    if (mode === "subscribe" && token === ourToken) {
-      return { statusCode: 200, body: challenge };
+    if (mode === "subscribe" && token !== undefined && challenge !== undefined) {
+      if (!ourToken) {
+        return {
+          statusCode: 200,
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+          body:
+            "<h1>Webhook not configured</h1><p>Set <strong>FB_VERIFY_TOKEN</strong> in Netlify: Site settings → Environment variables. Use the same value as &quot;Verify token&quot; in Facebook App → Webhooks.</p>",
+        };
+      }
+      if (token === ourToken) {
+        return { statusCode: 200, body: String(challenge) };
+      }
     }
     if (!mode && !token) {
       return {
         statusCode: 200,
-        headers: { "Content-Type": "text/plain" },
+        headers: { "Content-Type": "text/html; charset=utf-8" },
         body:
-          "Webhook endpoint.\n\n" +
-          "Facebook: GET with hub.mode=subscribe&hub.verify_token=...&hub.challenge=...\n" +
-          "Callback URL: https://YOUR-SITE.netlify.app/.netlify/functions/webhook",
+          "<h1>Webhook endpoint</h1>" +
+          "<p>Use this as <strong>Callback URL</strong> in Facebook App → Webhooks:</p>" +
+          "<p><code>https://YOUR-SITE.netlify.app/.netlify/functions/webhook</code></p>" +
+          "<p>Set <strong>FB_VERIFY_TOKEN</strong> in Netlify (same value as Verify token in Facebook).</p>",
       };
     }
     return { statusCode: 403, body: "Forbidden" };

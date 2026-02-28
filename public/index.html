@@ -7,11 +7,11 @@
 </head>
 <body>
   <h1>Messenger webhook</h1>
-  <p>Facebook callback (use either):</p>
+  <p>In Facebook App → Webhooks, use:</p>
   <ul>
-    <li><a href="/.netlify/functions/webhook">/.netlify/functions/webhook</a></li>
-    <li><a href="/webhook">/webhook</a> (redirects to function)</li>
+    <li><strong>Callback URL:</strong> <code>https://YOUR-SITE.netlify.app/.netlify/functions/webhook</code></li>
+    <li><strong>Verify token:</strong> same value as <code>FB_VERIFY_TOKEN</code> in Netlify env vars</li>
   </ul>
-  <p>Set <strong>https://YOUR-SITE.netlify.app/webhook</strong> in Facebook App → Webhooks → Callback URL.</p>
+  <p>If verification fails, set <code>FB_VERIFY_TOKEN</code> in Netlify (Site settings → Environment variables) and retry.</p>
 </body>
 </html>
